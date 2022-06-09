@@ -1,9 +1,15 @@
-from json import loads
-from kafka import KafkaConsumer
+from pyspark.sql import SparkSession
 
-consumer = KafkaConsumer('changes',
-                         bootstrap_servers='kafka-server:9092',
-                         value_deserializer=lambda x: loads(x.decode('ascii')))
+spark = SparkSession \
+        .builder \
+        .appName("Spark Kafka Streaming") \
+        .getOrCreate()
 
-for change in consumer:
-    print(change)
+df = spark \
+  .readStream \
+  .format("kafka") \
+  .option("kafka.bootstrap.servers", "kafka-server:9092") \
+  .option("subscribe", "changes") \
+  .load()
+
+df.printSchema()
