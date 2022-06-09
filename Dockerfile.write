@@ -1,0 +1,10 @@
+FROM python:3.9-slim
+
+RUN pip install --upgrade pip
+RUN pip install kafka-python
+RUN pip install sseclient
+
+WORKDIR /bigdata_project
+COPY ./kafka_write.py .
+
+CMD ["python3", "kafka_write.py"]
