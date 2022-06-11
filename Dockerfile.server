@@ -3,9 +3,10 @@ FROM datamechanics/spark:3.1-latest
 RUN pip install cassandra-driver
 RUN pip install kafka-python
 RUN pip install pyspark
+RUN pip install flask
 
 WORKDIR /bigdata_project
 COPY ./cassandra_client.py .
-COPY ./kafka_read.py .
+COPY ./app.py .
 
-CMD ["python3", "-u", "kafka_read.py"]
+CMD ["python3", "-u", "app.py"]
