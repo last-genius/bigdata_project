@@ -18,16 +18,13 @@ class CassandraClient:
             .getOrCreate()
         self.df = self.spark.createDataFrame([], schema=self.schema)
 
-        self.a1 = []
-        self.a2 = {}
-        self.a3 = {}
-
     def connect(self):
         cluster = Cluster(['cassandra-server'], port=9042)
         self.session = cluster.connect('project')
 
     def write(self, data):
-        dt = datetime.strptime(data["meta"]["dt"].replace("T", " ").replace("Z", ""), "%Y-%m-%d %H:%M:%S")
+        dt = datetime.strptime(data["meta"]["dt"].replace(
+            "T", " ").replace("Z", ""), "%Y-%m-%d %H:%M:%S")
         data_dict = [{
             "domain": str(data["meta"]["domain"]),
             "url": data["meta"]["uri"],
@@ -58,35 +55,33 @@ class CassandraClient:
         self.df = self.df.filter(
             self.df["interval"] != (datetime.utcnow() - timedelta(hours=6)).hour)
 
-        if len(self.a1) == 6: self.a1 = self.a1[1:]
-
-
         # print("our hour", (datetime.utcnow() - timedelta(hours=1)).hour)
-        last_hour_data = self.df.filter(self.df["interval"] == (datetime.utcnow() - timedelta(hours=0)).hour)
-        last_hour_data = last_hour_data.groupBy(self.df["domain"]).count().collect()
+        last_hour_data = self.df.filter(self.df["interval"] == (
+            datetime.utcnow() - timedelta(hours=0)).hour)
+        last_hour_data = last_hour_data.groupBy(
+            self.df["domain"]).count().collect()
         # print(last_hour_data)
         statistics = []
         for row in last_hour_data:
             statistics.append((row["domain"], row["count"]))
-        # print(self.a1)
         self.session.execute(f"INSERT INTO category_a_1 (time_start, time_end, statistics) "
-                             f"VALUES ({(datetime.utcnow() - timedelta(hours=2)).hour}, " \
-                             f"{(datetime.utcnow() - timedelta(hours=1)).hour}, " \
+                             f"VALUES ({(datetime.utcnow() - timedelta(hours=2)).hour}, "
+                             f"{(datetime.utcnow() - timedelta(hours=1)).hour}, "
                              "{" + ','.join([f"'{key}': {val}" for key, val in statistics]) + "})")
 
         start_date = (datetime.utcnow() - timedelta(hours=7)).hour
         end_date = (datetime.utcnow() - timedelta(hours=1)).hour
-        # last_hours_data = self.df.filter((start_date < self.df["interval"]) & (self.df["interval"] <= end_date))
         bots_rows = self.df.filter(self.df["user_is_bot"] == "True") \
             .groupBy(self.df["domain"]).count().collect()
-        self.a2 = {"time_start": start_date,
-                   "time_end": end_date,
-                   "statistics": [{"domain": row["domain"], "created_by_bots": row["count"]} for row in bots_rows]}
+        statistics = []
+        for row in bots_rows:
+            statistics.append({'domain': row['domain'],
+                               'created_by_bots': row['count']})
+        self.session.execute(f"INSERT INTO category_a_2 (time_start, time_end, statistics) "
+                             f"VALUES ({start_date}, {end_date}, "
+                             f"{str(statistics)})")
 
-        self.a3 = {"time_start": start_date,
-                   "time_end": end_date,
-                   "statistics": []}
-
+        statistics = []
         top_20_users = self.df.groupBy(self.df["user_text"]).count() \
             .sort(desc("count")).limit(20).collect()
         for row in top_20_users:
@@ -95,17 +90,25 @@ class CassandraClient:
                         "user_id": user_pages[0]["user_id"],
                         "count": len(user_pages),
                         "titles": [i.page_title for i in user_pages]}
+            
+            statistics.append(user_row)
 
-            self.a3["statistics"].append(user_row)
+        # print(str(statistics))
+        self.session.execute(f"INSERT INTO category_a_3 (time_start, time_end, statistics) "
+                            f"VALUES ({start_date}, {end_date}, " \
+                            f"{str(statistics)})")
 
     def select_a1(self, data):
-        return list(self.session.execute("SELECT * from category_a_1"))
+        last_hour = (datetime.utcnow() - timedelta(hours=6)).hour
+        return list(self.session.execute(f"SELECT * from category_a_1 WHERE time_start > {last_hour} ALLOW FILTERING"))
 
     def select_a2(self, data):
-        return self.a2
+        last_hour = (datetime.utcnow() - timedelta(hours=6)).hour
+        return list(self.session.execute(f"SELECT * from category_a_2 WHERE time_start > {last_hour} ALLOW FILTERING"))
 
     def select_a3(self, data):
-        return self.a3
+        last_hour = (datetime.utcnow() - timedelta(hours=6)).hour
+        return list(self.session.execute(f"SELECT * from category_a_3 WHERE time_start > {last_hour} ALLOW FILTERING"))
 
     def select_created_domains(self, data):
         return list(self.session.execute("SELECT DISTINCT domain from created_domains"))

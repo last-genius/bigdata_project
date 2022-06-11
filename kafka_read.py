@@ -19,8 +19,6 @@ while True:
     for msg in consumer:
         if added % 100 == 0:
             print(added)
-            print("user_id", msg.value["performer"]["user_id"] if "user_id" in msg.value["performer"] else 0)
-            print("page_id", msg.value["page_id"])
         client.write(msg.value)
         added += 1
         
