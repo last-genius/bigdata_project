@@ -47,3 +47,18 @@ CREATE TABLE category_a_2
     time_end int,
     statistics list<frozen<stats>> 
 );
+
+CREATE TYPE countpages 
+(
+    user_text text,
+    user_id int,
+    count int,
+    titles list<text>
+);
+
+CREATE TABLE category_a_3
+(
+    time_start int PRIMARY KEY,
+    time_end int,
+    statistics list<frozen<countpages>>
+);
